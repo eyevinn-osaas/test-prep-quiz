@@ -1,0 +1,14 @@
+services:
+  server:
+    image: ${DOCKER_REPO_SERVER:-iqesolutions/test-prep-quiz-server}:latest
+    restart: unless-stopped
+    ports:
+      - "8793:8793"
+
+  web:
+    image: ${DOCKER_REPO_WEB:-iqesolutions/test-prep-quiz-web}:latest
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "8792:80"

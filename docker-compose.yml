@@ -1,0 +1,21 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: ${DOCKER_REPO_SERVER:-iqesolutions/test-prep-quiz-server}:latest
+    restart: unless-stopped
+    ports:
+      - "8793:8793"   # API + socket
+    # No volumes needed; packs are baked into the image
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: ${DOCKER_REPO_WEB:-iqesolutions/test-prep-quiz-web}:latest
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "8792:80"     # Web UI
