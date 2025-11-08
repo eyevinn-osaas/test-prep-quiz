@@ -1,0 +1,22 @@
+{
+  "name": "birthday",
+  "vars": {
+    "--bg-color": "#1a0a2e",
+    "--panel": "#2d1b4e",
+    "--ink": "#ffffff",
+    "--muted": "#e0b3ff",
+    "--accent": "#ff006e",
+    "--good": "#00f5d4",
+    "--bad": "#ff5252",
+    "--bg-image": "linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)",
+    "--font-family": "Fredoka, system-ui"
+  },
+  "effects": {
+    "balloons": true,
+    "confetti": true
+  },
+  "preview": {
+    "accent": "#ff006e",
+    "bg": "#667eea"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "space",
+  "vars": {
+    "--bg-color": "#0a0e27",
+    "--panel": "#1a1e3e",
+    "--ink": "#ffffff",
+    "--muted": "#b8c5f2",
+    "--accent": "#00d9ff",
+    "--good": "#7fff00",
+    "--bad": "#ff4757",
+    "--bg-image": "radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%)",
+    "--font-family": "Fredoka, system-ui"
+  },
+  "effects": {
+    "stars": true,
+    "planets": true
+  },
+  "preview": {
+    "accent": "#00d9ff",
+    "bg": "#1b2735"
+  }
+}

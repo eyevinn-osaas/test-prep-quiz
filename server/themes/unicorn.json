@@ -1,0 +1,22 @@
+{
+  "name": "unicorn",
+  "vars": {
+    "--bg-color": "#1a0a2e",
+    "--panel": "#2e1a3e",
+    "--ink": "#ffffff",
+    "--muted": "#ffd6ff",
+    "--accent": "#e0aaff",
+    "--good": "#7bf1a8",
+    "--bad": "#ff6b9d",
+    "--bg-image": "linear-gradient(135deg, #ffc3a0 0%, #ffafbd 25%, #c7a3ff 50%, #a8e6ff 75%, #c7f0db 100%)",
+    "--font-family": "Fredoka, system-ui"
+  },
+  "effects": {
+    "sparkles": true,
+    "rainbows": true
+  },
+  "preview": {
+    "accent": "#e0aaff",
+    "bg": "#ffc3a0"
+  }
+}

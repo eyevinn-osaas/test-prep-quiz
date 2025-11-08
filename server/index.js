@@ -262,11 +262,17 @@ io.on("connection", (socket)=>{
   });
 
   // Player: join
-  socket.on("player:join", ({ code, name }, cb)=>{
+  socket.on("player:join", ({ code, name, avatar }, cb)=>{
     const room = rooms.get((code||"").trim().toUpperCase());
     if(!room) return cb?.({ ok:false, error:"room_not_found" });
     socket.join(room.code);
-    room.players.set(socket.id, { name: String(name||"Player").slice(0,24), score:0, answered:false, lastQ:-1 });
+    room.players.set(socket.id, {
+      name: String(name||"Player").slice(0,24),
+      avatar: String(avatar||"😀").slice(0,2),
+      score:0,
+      answered:false,
+      lastQ:-1
+    });
     broadcastState(room);
     cb?.({ ok:true, room:{ code:room.code, packTitle:room.packTitle }, theme: room.theme?.name });
   });

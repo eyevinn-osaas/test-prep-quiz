@@ -1,0 +1,22 @@
+{
+  "name": "ocean",
+  "vars": {
+    "--bg-color": "#001f3f",
+    "--panel": "#003d5c",
+    "--ink": "#e0f7fa",
+    "--muted": "#80deea",
+    "--accent": "#00bcd4",
+    "--good": "#4caf50",
+    "--bad": "#ff6b6b",
+    "--bg-image": "linear-gradient(180deg, #003d5c 0%, #001f3f 50%, #000a1f 100%)",
+    "--font-family": "Fredoka, system-ui"
+  },
+  "effects": {
+    "fish": true,
+    "bubbles": true
+  },
+  "preview": {
+    "accent": "#00bcd4",
+    "bg": "#003d5c"
+  }
+}

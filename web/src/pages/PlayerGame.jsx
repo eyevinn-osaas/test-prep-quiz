@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { socket } from "../socket";
 import QuestionCard from "../components/QuestionCard.jsx";
 import Scoreboard from "../components/Scoreboard.jsx";
+import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
+import { ConfettiBurst, useConfetti } from "../components/ConfettiBurst.jsx";
+import { soundPlayer, SoundMuteToggle } from "../components/SoundEffects.jsx";
+import { WinnerCelebration } from "../components/WinnerCelebration.jsx";
 
 function applyThemeToDocument(theme) {
   try {
@@ -19,62 +23,18 @@ function applyThemeToDocument(theme) {
     if (vars["--bg-color"]) {
       document.body.style.backgroundColor = vars["--bg-color"];
     }
+    if (vars["--font-family"]) {
+      document.body.style.fontFamily = vars["--font-family"];
+    } else {
+      document.body.style.fontFamily = "Poppins, system-ui";
+    }
   } catch {}
-}
-
-function ThemeOverlay({ effects }) {
-  if (!effects) return null;
-  if (effects.bats) {
-    const bats = Array.from({length: 10}, (_,i)=> i);
-    return (
-      <div style={{position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0}}>
-        {bats.map(i=>(
-          <div key={i} style={{
-            position:"absolute",
-            top: `${Math.random()*80}%`,
-            left: `${Math.random()*90}%`,
-            fontSize: 24 + Math.round(Math.random()*10),
-            opacity: 0.6,
-            animation: `bat-fly ${8 + Math.random()*6}s ease-in-out ${Math.random()*3}s infinite alternate`
-          }}>🦇</div>
-        ))}
-        <style>{`
-          @keyframes bat-fly {
-            0% { transform: translateY(-10px) rotate(-10deg); }
-            100% { transform: translateY(10px) rotate(10deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-  if (effects.snow) {
-    const flakes = Array.from({length: 40}, (_,i)=> i);
-    return (
-      <div style={{position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0}}>
-        {flakes.map(i=>(
-          <div key={i} style={{
-            position:"absolute",
-            top: "-5%",
-            left: `${Math.random()*100}%`,
-            fontSize: 10 + Math.round(Math.random()*14),
-            opacity: 0.8,
-            animation: `flake-fall ${6 + Math.random()*8}s linear ${Math.random()*4}s infinite`
-          }}>❄️</div>
-        ))}
-        <style>{`
-          @keyframes flake-fall {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(110vh); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-  return null;
 }
 
 export default function PlayerGame(){
   const { code, name } = useParams();
+  const [searchParams] = useSearchParams();
+  const avatar = searchParams.get('avatar') || '😀';
   const nav = useNavigate();
 
   const [room,setRoom] = useState(null);
@@ -82,6 +42,8 @@ export default function PlayerGame(){
   const [reveal,setReveal] = useState(null);
   const [locked,setLocked] = useState(false);
   const [theme,setTheme] = useState(null);
+  const [showWinnerCelebration, setShowWinnerCelebration] = useState(false);
+  const { confettiTrigger, fireConfetti } = useConfetti();
 
   const [now, setNow] = useState(Date.now());
   useEffect(()=>{
@@ -93,7 +55,7 @@ export default function PlayerGame(){
     : 0;
 
   useEffect(()=>{
-    socket.emit("player:join", { code, name }, (res)=>{
+    socket.emit("player:join", { code, name, avatar }, (res)=>{
       if(!res?.ok){ alert("Could not join (bad code?)"); nav("/play"); }
     });
 
@@ -104,8 +66,16 @@ export default function PlayerGame(){
         applyThemeToDocument(r.theme);
       }
     };
-    const onNew = (payload)=>{ setQ(payload.q); setLocked(false); setReveal(null); };
-    const onReveal = (payload)=>{ setReveal(payload); setLocked(true); };
+    const onNew = (payload)=>{ setQ(payload.q); setLocked(false); setReveal(null); setShowWinnerCelebration(false); };
+    const onReveal = (payload)=>{
+      setReveal(payload);
+      setLocked(true);
+      if (payload.winner === name) {
+        fireConfetti();
+        soundPlayer.playCelebration();
+        setShowWinnerCelebration(true);
+      }
+    };
     const onEnd = ()=>{ alert("Game finished!"); nav("/play"); };
 
     socket.on("room:update", onUpdate);
@@ -134,12 +104,17 @@ export default function PlayerGame(){
   return (
     <div style={{position:"relative", zIndex:1}}>
       {theme && <ThemeOverlay effects={theme.effects} />}
+      <ConfettiBurst trigger={confettiTrigger} />
+      <WinnerCelebration show={showWinnerCelebration} winnerName={name} />
 
-      <div style={{marginBottom:10,display:"flex",gap:10,flexWrap:"wrap",opacity:.9}}>
-        <span>Room <strong>{code}</strong></span>
-        {room?.packTitle && <span>• {room.packTitle}</span>}
-        {room && <span>• Q {qNum} / {room.total}</span>}
-        {room?.status==="question" && <span>• ⏳ {timeLeft}s</span>}
+      <div style={{marginBottom:10,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",opacity:.9}}>
+          <span>Room <strong>{code}</strong></span>
+          {room?.packTitle && <span>• {room.packTitle}</span>}
+          {room && <span>• Q {qNum} / {room.total}</span>}
+          {room?.status==="question" && <span>• ⏳ {timeLeft}s</span>}
+        </div>
+        <SoundMuteToggle />
       </div>
 
       {q ? (

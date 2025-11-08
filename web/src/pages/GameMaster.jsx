@@ -3,6 +3,7 @@ import { socket } from "../socket";
 import { listPacks } from "../api";
 import Scoreboard from "../components/Scoreboard.jsx";
 import QuestionCard from "../components/QuestionCard.jsx";
+import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
 
 /* simple helper to apply CSS variables + body bg */
 function applyThemeToDocument(theme) {
@@ -21,63 +22,12 @@ function applyThemeToDocument(theme) {
     if (vars["--bg-color"]) {
       document.body.style.backgroundColor = vars["--bg-color"];
     }
+    if (vars["--font-family"]) {
+      document.body.style.fontFamily = vars["--font-family"];
+    } else {
+      document.body.style.fontFamily = "Poppins, system-ui";
+    }
   } catch {}
-}
-
-/* fun overlay visuals per theme.effects */
-function ThemeOverlay({ effects }) {
-  if (!effects) return null;
-
-  if (effects.bats) {
-    // simple floating bats using emojis
-    const bats = Array.from({length: 10}, (_,i)=> i);
-    return (
-      <div style={{position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0}}>
-        {bats.map(i=>(
-          <div key={i} style={{
-            position:"absolute",
-            top: `${Math.random()*80}%`,
-            left: `${Math.random()*90}%`,
-            fontSize: 24 + Math.round(Math.random()*10),
-            opacity: 0.6,
-            animation: `bat-fly ${8 + Math.random()*6}s ease-in-out ${Math.random()*3}s infinite alternate`
-          }}>🦇</div>
-        ))}
-        <style>{`
-          @keyframes bat-fly {
-            0% { transform: translateY(-10px) rotate(-10deg); }
-            100% { transform: translateY(10px) rotate(10deg); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  if (effects.snow) {
-    const flakes = Array.from({length: 40}, (_,i)=> i);
-    return (
-      <div style={{position:"fixed", inset:0, pointerEvents:"none", overflow:"hidden", zIndex:0}}>
-        {flakes.map(i=>(
-          <div key={i} style={{
-            position:"absolute",
-            top: "-5%",
-            left: `${Math.random()*100}%`,
-            fontSize: 10 + Math.round(Math.random()*14),
-            opacity: 0.8,
-            animation: `flake-fall ${6 + Math.random()*8}s linear ${Math.random()*4}s infinite`
-          }}>❄️</div>
-        ))}
-        <style>{`
-          @keyframes flake-fall {
-            0% { transform: translateY(0px); }
-            100% { transform: translateY(110vh); }
-          }
-        `}</style>
-      </div>
-    );
-  }
-
-  return null;
 }
 
 export default function GameMaster(){
