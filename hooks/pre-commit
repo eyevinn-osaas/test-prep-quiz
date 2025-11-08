@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Git pre-commit hook to run linting before commits
+# This catches errors like missing React imports before they're committed
+
+echo "🔍 Running pre-commit checks..."
+
+# Only check web files if they were modified
+if git diff --cached --name-only | grep -q "^web/"; then
+    echo "  📦 Linting web files..."
+    cd web
+
+    # Run lint on staged files
+    npm run lint --silent
+    LINT_EXIT=$?
+
+    cd ..
+
+    if [ $LINT_EXIT -ne 0 ]; then
+        echo ""
+        echo "❌ ESLint found errors. Please fix them before committing."
+        echo "   You can run 'npm run lint:fix' in the web directory to auto-fix some issues."
+        exit 1
+    fi
+
+    echo "  ✅ Lint passed!"
+fi
+
+echo "✨ Pre-commit checks passed!"
+exit 0
