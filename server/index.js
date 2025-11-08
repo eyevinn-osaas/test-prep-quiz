@@ -1,6 +1,6 @@
 // Multiplayer Quick-Quiz server (GM separate from players).
-// Packs: JSON files in ./packs with {title, items:[{front, back, hint?, choices?, answerIndex?}]}
-// No OpenAI here. Pure realtime quiz.
+// Packs and Themes are JSON files under ./packs and ./themes.
+// Theme is selected at room creation, propagated to all players.
 
 import express from "express";
 import cors from "cors";
@@ -15,12 +15,65 @@ const __dirname = path.dirname(__filename);
 
 const PORT = Number(process.env.PORT || 8793);
 const PACKS_DIR = path.join(__dirname, "packs");
+const THEMES_DIR = path.join(__dirname, "themes");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- REST: list packs, get a pack
+/* ----------------------- THEMES ----------------------- */
+
+async function listThemes() {
+  try {
+    const dir = await fs.readdir(THEMES_DIR, { withFileTypes: true });
+    const files = dir.filter(d => d.isFile() && d.name.endsWith(".json")).map(d => d.name);
+    const out = [];
+    for (const f of files) {
+      try {
+        const txt = await fs.readFile(path.join(THEMES_DIR, f), "utf8");
+        const obj = JSON.parse(txt);
+        // minimal listing fields
+        out.push({
+          file: f,
+          name: obj?.name || f.replace(/\.json$/,""),
+          preview: obj?.preview || {},
+        });
+      } catch {}
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+async function readTheme(fileOrName) {
+  try {
+    const fname = fileOrName.endsWith(".json") ? fileOrName : `${fileOrName}.json`;
+    const full = path.join(THEMES_DIR, path.basename(fname));
+    const txt = await fs.readFile(full, "utf8");
+    const obj = JSON.parse(txt);
+    return obj;
+  } catch {
+    return null;
+  }
+}
+
+// REST: list themes
+app.get("/api/themes", async (_req, res) => {
+  const themes = await listThemes();
+  res.json({ themes });
+});
+
+// REST: get one theme by name or file
+app.get("/api/theme/:name", async (req, res) => {
+  const t = await readTheme(req.params.name);
+  if (!t) return res.status(404).json({ error: "theme_not_found" });
+  res.json(t);
+});
+
+/* ----------------------- PACKS ----------------------- */
+
+// REST: list packs
 app.get("/api/packs", async (_req, res) => {
   try {
     const dir = await fs.readdir(PACKS_DIR, { withFileTypes: true });
@@ -34,11 +87,12 @@ app.get("/api/packs", async (_req, res) => {
       } catch {}
     }
     res.json({ packs: out });
-  } catch {
+  } catch (e) {
     res.status(200).json({ packs: [] });
   }
 });
 
+// REST: get a pack
 app.get("/api/pack/:file", async (req, res) => {
   try {
     const f = path.basename(req.params.file);
@@ -46,68 +100,37 @@ app.get("/api/pack/:file", async (req, res) => {
     const txt = await fs.readFile(full, "utf8");
     const obj = JSON.parse(txt);
     res.json(obj);
-  } catch {
+  } catch (e) {
     res.status(404).json({ error: "pack_not_found" });
   }
 });
 
+/* ----------------------- SOCKET ----------------------- */
+
 const server = http.createServer(app);
 const io = new IOServer(server, { cors: { origin: "*" } });
 
-// --- helpers ---
-const shuffle = (arr) => {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-};
-
-// --- In-memory rooms
-// code -> room
-const rooms = new Map();
-
+const rooms = new Map(); // code -> room
 const genCode = () =>
   Array.from({ length: 6 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random()*33)]).join("");
 
-function buildChoices(q){
-  if (Array.isArray(q?.choices) && Number.isInteger(q?.answerIndex)) return q;
-  // synthesize 4 choices
-  const choices = [q.back, "Inte denna", "Ett annat alternativ", "Ytterligare distraktor"];
-  return { ...q, choices, answerIndex: 0 };
-}
-
-function makeRoom({ code, pack, items, durationSec, order, totalQuestions }) {
+function makeRoom({ code, pack, items, theme }) {
   return {
     code,
     createdAt: Date.now(),
     packTitle: pack?.title || code,
-    items,                 // normalized items (each has .choices and .answerIndex)
-    order,                 // shuffled array of indices into items, length = totalQuestions
-    totalQuestions,        // convenience
-    ix: -1,                // current question index in order
-    status: "lobby",       // lobby | question | reveal | ended
+    items,
+    ix: -1,
+    status: "lobby", // lobby | question | reveal | ended
     lock: false,
-    timer: null,           // per-question countdown timeout
+    timer: null,
     endsAt: 0,
-    durationSec,
-    autoNextTimer: null,   // 5s auto-advance after reveal
-    players: new Map(),    // socketId -> {name, score, lastQ: -1, answered:false}
-    gm: null
+    durationSec: 30,
+    players: new Map(), // socketId -> {name, score, lastQ: -1, answered:false}
+    gm: null,
+    theme: theme || null, // full theme object
+    totalOverride: null,  // optional if you carry total from GM; not used here
   };
-}
-
-function currentItem(room){
-  if (room.ix < 0 || room.ix >= room.order.length) return null;
-  const itemIndex = room.order[room.ix];
-  return room.items[itemIndex];
-}
-function currentCorrectIndex(room){
-  const q = currentItem(room);
-  if (!q) return 0;
-  if (Array.isArray(q?.choices) && Number.isInteger(q?.answerIndex)) return q.answerIndex;
-  return 0;
 }
 
 function broadcastState(room){
@@ -116,108 +139,90 @@ function broadcastState(room){
     packTitle: room.packTitle,
     status: room.status,
     ix: room.ix,
-    total: room.order.length,
+    total: room.items.length,
     durationSec: room.durationSec,
     endsAt: room.endsAt,
-    players: [...room.players.values()].map(p => ({ name:p.name, score:p.score }))
+    players: [...room.players.values()].map(p => ({ name:p.name, score:p.score })),
+    theme: room.theme ? {
+      name: room.theme.name || "classic",
+      vars: room.theme.vars || {},
+      effects: room.theme.effects || {}
+    } : null
   };
   io.to(room.code).emit("room:update", payload);
 }
 
-function clearQuestionTimer(room){
-  if (room.timer) { clearTimeout(room.timer); room.timer = null; }
-}
-function clearAutoNext(room){
-  if (room.autoNextTimer) { clearTimeout(room.autoNextTimer); room.autoNextTimer = null; }
-}
-function scheduleAutoNext(room){
-  clearAutoNext(room);
-  room.autoNextTimer = setTimeout(()=>{
-    if (room.status !== "reveal") return; // GM may have advanced
-    gmNext(room);
-  }, 5000);
-}
-
 function startTimer(room){
-  clearQuestionTimer(room);
+  clearTimeout(room.timer);
   room.endsAt = Date.now() + room.durationSec*1000;
   room.timer = setTimeout(()=>{
+    // time's up -> reveal with no winner
     if(room.status !== "question") return;
     room.status = "reveal";
     room.lock = true;
     io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: null });
     broadcastState(room);
-    scheduleAutoNext(room);
+    // Optional: auto-advance after 5s
+    setTimeout(()=> {
+      if(room.status === "reveal") {
+        io.to(room.code).emit("gm:auto-next", {});
+        // GM will likely press Next; if you want fully automatic, you could call nextQ here.
+      }
+    }, 5000);
   }, room.durationSec*1000 + 50);
 }
 
-function resetPerQuestionState(room){
-  room.status = "question";
-  room.lock = false;
-  room.players.forEach(p => { p.answered = false; p.lastQ = room.ix; });
-  clearAutoNext(room);
-  startTimer(room);
-  const q = currentItem(room);
-  io.to(room.code).emit("question:new", {
-    ix: room.ix,
-    total: room.order.length,
-    q
-  });
-  broadcastState(room);
+function currentQuestion(room){ return room.items[room.ix]; }
+function currentCorrectIndex(room){
+  const q = currentQuestion(room);
+  if (Array.isArray(q?.choices) && Number.isInteger(q?.answerIndex)) return q.answerIndex;
+  return 0; // fallback when we synthesize choices
 }
 
-// Move to next (shared by GM button and auto-advance)
-function gmNext(room){
-  clearQuestionTimer(room);
-  clearAutoNext(room);
-  room.ix++;
-  if(room.ix >= room.order.length){
-    room.status = "ended"; room.lock = true;
-    io.to(room.code).emit("game:ended");
-    broadcastState(room);
-    return;
-  }
-  resetPerQuestionState(room);
+function buildChoices(q){
+  if (Array.isArray(q?.choices) && Number.isInteger(q?.answerIndex)) return q;
+  // synthesize 4 choices
+  const choices = [q.back, "Inte denna", "Ett annat alternativ", "Ytterligare distraktor"];
+  return { ...q, choices, answerIndex: 0 };
 }
 
-// --- Socket.IO
 io.on("connection", (socket)=>{
-  // GM: create room
-  socket.on("gm:create", async ({ packFile, durationSec, totalQuestions }, cb)=>{
+  // GM: create room (with theme)
+  socket.on("gm:create", async ({ packFile, durationSec, totalQuestions, themeName }, cb)=>{
     try{
       const file = path.basename(packFile);
       const txt = await fs.readFile(path.join(PACKS_DIR, file), "utf8");
       const obj = JSON.parse(txt);
       if(!Array.isArray(obj?.items) || obj.items.length === 0) throw new Error("empty pack");
 
-      const normalized = obj.items.map(buildChoices);
-      const maxQ = normalized.length;
-      const requested = Math.max(1, Math.min(Number(totalQuestions || maxQ), maxQ));
-
-      // Build a shuffled order of indices, then slice to requested length
-      const order = shuffle([...normalized.keys()]).slice(0, requested);
+      const theme = (await readTheme(themeName || "classic")) ||
+                    (await readTheme("classic")) ||
+                    { name:"classic", vars:{}, effects:{} };
 
       const code = genCode();
-      const room = makeRoom({
-        code,
-        pack: obj,
-        items: normalized,
-        durationSec: Math.max(5, Math.min(120, Number(durationSec||30))),
-        order,
-        totalQuestions: requested
-      });
-      room.packTitle = obj.title || file;
-      room.gm = socket.id;
-      rooms.set(code, room);
+      let items = obj.items.map(buildChoices);
 
+      // bound totalQuestions
+      const maxQ = items.length;
+      const total = Math.max(1, Math.min(Number(totalQuestions || maxQ), maxQ));
+
+      // randomize and take first N
+      const idx = Array.from({length:maxQ}, (_,i)=>i);
+      for(let i=idx.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [idx[i],idx[j]]=[idx[j],idx[i]];
+      }
+      items = idx.slice(0, total).map(i => items[i]);
+
+      const room = makeRoom({ code, pack: obj, items, theme });
+      room.packTitle = obj.title || file;
+      room.durationSec = Math.max(5, Math.min(120, Number(durationSec||30)));
+      room.gm = socket.id;
+
+      rooms.set(code, room);
       socket.join(code);
-      cb?.({
-        ok:true,
-        code,
-        packTitle: room.packTitle,
-        count: room.totalQuestions,
-        durationSec: room.durationSec
-      });
+
+      cb?.({ ok:true, code, packTitle: room.packTitle, count: room.items.length, durationSec: room.durationSec, theme: room.theme?.name });
       broadcastState(room);
     }catch(e){
       cb?.({ ok:false, error: "create_failed", detail: e.message });
@@ -227,15 +232,32 @@ io.on("connection", (socket)=>{
   // GM: start first question
   socket.on("gm:start", ({ code }, cb)=>{
     const room = rooms.get(code); if(!room || room.gm!==socket.id) return cb?.({ ok:false });
-    room.ix = 0;
-    resetPerQuestionState(room);
+    room.ix = 0; room.status = "question"; room.lock=false;
+    room.players.forEach(p => { p.answered=false; p.lastQ=room.ix; });
+    startTimer(room);
+    io.to(code).emit("question:new", {
+      ix: room.ix, total: room.items.length, q: currentQuestion(room)
+    });
+    broadcastState(room);
     cb?.({ ok:true });
   });
 
-  // GM: next question (manual)
+  // GM: next question
   socket.on("gm:next", ({ code }, cb)=>{
     const room = rooms.get(code); if(!room || room.gm!==socket.id) return cb?.({ ok:false });
-    gmNext(room);
+    clearTimeout(room.timer);
+    room.ix++;
+    if(room.ix >= room.items.length){
+      room.status = "ended"; room.lock = true;
+      io.to(code).emit("game:ended");
+      broadcastState(room);
+      return cb?.({ ok:true, ended:true });
+    }
+    room.status = "question"; room.lock=false;
+    room.players.forEach(p => { p.answered=false; p.lastQ=room.ix; });
+    startTimer(room);
+    io.to(code).emit("question:new", { ix: room.ix, total: room.items.length, q: currentQuestion(room) });
+    broadcastState(room);
     cb?.({ ok:true });
   });
 
@@ -244,17 +266,12 @@ io.on("connection", (socket)=>{
     const room = rooms.get((code||"").trim().toUpperCase());
     if(!room) return cb?.({ ok:false, error:"room_not_found" });
     socket.join(room.code);
-    room.players.set(socket.id, {
-      name: String(name||"Player").slice(0,24),
-      score:0,
-      answered:false,
-      lastQ:-1
-    });
+    room.players.set(socket.id, { name: String(name||"Player").slice(0,24), score:0, answered:false, lastQ:-1 });
     broadcastState(room);
-    cb?.({ ok:true, room:{ code:room.code, packTitle:room.packTitle } });
+    cb?.({ ok:true, room:{ code:room.code, packTitle:room.packTitle }, theme: room.theme?.name });
   });
 
-  // Player: answer
+  // Player: answer (one attempt; wrong = -1; correct = +10 and reveal)
   socket.on("player:answer", ({ code, choiceIndex }, cb)=>{
     const room = rooms.get(code); if(!room || room.status!=="question" || room.lock) return cb?.({ ok:false });
     const player = room.players.get(socket.id); if(!player) return cb?.({ ok:false });
@@ -265,29 +282,30 @@ io.on("connection", (socket)=>{
     const correct = Number(choiceIndex) === currentCorrectIndex(room);
 
     if(correct){
-      // Correct: reveal winner, score, auto-advance after 5s
       room.lock = true; room.status = "reveal";
       player.score += 10;
-      clearQuestionTimer(room);
+      clearTimeout(room.timer);
       io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: player.name });
       broadcastState(room);
-      scheduleAutoNext(room);
+      // auto-advance after 5s if GM doesn't press Next
+      setTimeout(()=> {
+        if(room.status === "reveal") io.to(room.code).emit("gm:auto-next", {});
+      }, 5000);
       return cb?.({ ok:true, correct:true });
     } else {
-      // Wrong: -1 (if you want negative points on incorrect)
       player.score -= 1;
-
-      // If everyone answered (and no one was correct yet), reveal and auto-advance
+      broadcastState(room);
+      // if all players answered (all have answered==true for this ix), auto-reveal/next
       const allAnswered = [...room.players.values()].length > 0 &&
-                          [...room.players.values()].every(p => p.lastQ === room.ix && p.answered === true);
+                          [...room.players.values()].every(p => p.answered && p.lastQ === room.ix);
       if (allAnswered) {
         room.lock = true; room.status = "reveal";
-        clearQuestionTimer(room);
+        clearTimeout(room.timer);
         io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: null });
         broadcastState(room);
-        scheduleAutoNext(room);
-      } else {
-        broadcastState(room);
+        setTimeout(()=> {
+          if(room.status === "reveal") io.to(room.code).emit("gm:auto-next", {});
+        }, 5000);
       }
       return cb?.({ ok:true, correct:false });
     }
@@ -297,8 +315,7 @@ io.on("connection", (socket)=>{
   socket.on("disconnect", ()=>{
     for(const room of rooms.values()){
       if(room.gm === socket.id){
-        clearQuestionTimer(room);
-        clearAutoNext(room);
+        clearTimeout(room.timer);
         io.to(room.code).emit("game:ended");
         rooms.delete(room.code);
         break;

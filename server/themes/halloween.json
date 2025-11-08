@@ -1,0 +1,20 @@
+{
+  "name": "halloween",
+  "vars": {
+    "--bg-color": "#0b0a10",
+    "--panel": "#1b1220",
+    "--ink": "#ffe9d6",
+    "--muted": "#ffbb77",
+    "--accent": "#ff7a18",
+    "--good": "#69f0ae",
+    "--bad": "#ff5252",
+    "--bg-image": ""
+  },
+  "effects": {
+    "bats": true
+  },
+  "preview": {
+    "accent": "#ff7a18",
+    "bg": "#0b0a10"
+  }
+}

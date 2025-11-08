@@ -1,0 +1,20 @@
+{
+  "name": "winter",
+  "vars": {
+    "--bg-color": "#0b1020",
+    "--panel": "#111a2e",
+    "--ink": "#eaf4ff",
+    "--muted": "#b9d5ff",
+    "--accent": "#8ad0ff",
+    "--good": "#96f2d7",
+    "--bad": "#ff6b6b",
+    "--bg-image": ""
+  },
+  "effects": {
+    "snow": true
+  },
+  "preview": {
+    "accent": "#8ad0ff",
+    "bg": "#0b1020"
+  }
+}

@@ -7,6 +7,7 @@ RUN npm ci --omit=dev || npm i --omit=dev
 
 COPY index.js ./index.js
 COPY packs ./packs
+COPY themes ./themes
 
 EXPOSE 8793
 CMD ["node", "index.js"]

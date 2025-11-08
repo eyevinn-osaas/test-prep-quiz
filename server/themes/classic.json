@@ -1,0 +1,17 @@
+{
+  "name": "classic",
+  "vars": {
+    "--bg-color": "#0f1320",
+    "--panel": "#151a2e",
+    "--ink": "#e8ebff",
+    "--muted": "#9aa6ff",
+    "--accent": "#6ee7b7",
+    "--good": "#6ee7b7",
+    "--bad": "#ff6b6b"
+  },
+  "effects": {},
+  "preview": {
+    "accent": "#6ee7b7",
+    "bg": "#0f1320"
+  }
+}
