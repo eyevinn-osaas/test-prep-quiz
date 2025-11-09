@@ -5,6 +5,29 @@
   box-sizing: border-box;
 }
 
+/* Ensure html and body fill viewport */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: auto; /* Allow scrolling on mobile if needed */
+}
+
+/* On large screens, prevent scrolling entirely */
+@media (min-width: 1200px) {
+  html, body {
+    overflow: hidden;
+  }
+}
+
+/* Root app container fills viewport */
+#root {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Prevent inputs from overflowing on mobile */
 input, select, textarea, button {
   max-width: 100%;
@@ -201,39 +224,41 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
   }
 }
 
-/* Large screen layout - expand container and fit to screen */
-@media (min-width: 1200px) {
-  .app-main {
-    max-width: 90vw !important;
-  }
-}
-
 /* Game Master mobile layout - stack vertically */
 .gm-game-view {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
+  height: 100%;
 }
 
 /* Game Master fit-to-screen layout for large displays */
 @media (min-width: 1200px) {
+  .app-main {
+    max-width: 95vw;
+    margin: 0 auto;
+  }
+
   .gm-game-view {
     display: grid;
-    grid-template-columns: 1fr minmax(350px, 400px);
-    grid-template-rows: minmax(auto, min-content) minmax(auto, min-content) minmax(0, 1fr);
-    gap: var(--spacing-lg);
-    max-height: calc(100vh - 100px);
+    grid-template-columns: 1fr minmax(300px, 400px);
+    grid-template-rows: auto auto 1fr;
+    gap: clamp(12px, 1.5vh, 24px);
+    height: 100%;
+    max-height: 100%;
     overflow: hidden;
   }
 
   .gm-header {
     grid-column: 1 / -1;
-    min-height: 0;
+    grid-row: 1;
+    align-self: start;
   }
 
   .gm-controls {
     grid-column: 1 / -1;
-    min-height: 0;
+    grid-row: 2;
+    align-self: start;
   }
 
   .gm-question-area {
@@ -241,8 +266,6 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
     grid-row: 3;
     overflow-y: auto;
     overflow-x: hidden;
-    display: flex;
-    flex-direction: column;
     min-height: 0;
   }
 

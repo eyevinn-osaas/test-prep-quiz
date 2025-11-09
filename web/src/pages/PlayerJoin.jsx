@@ -9,8 +9,8 @@ export default function PlayerJoin(){
   const [avatar,setAvatar] = useState(AVATARS[0]);
   const nav = useNavigate();
   return (
-    <div style={{maxWidth:"100%",width:"100%"}}>
-      <h2 style={{margin:"6px 0",fontSize:"var(--font-xl, 24px)"}}>Join a game</h2>
+    <div style={{maxWidth:"100%",width:"100%",height:"100%",display:"flex",flexDirection:"column",overflow:"auto"}}>
+      <h2 style={{margin:"clamp(4px, 0.5vh, 6px) 0",fontSize:"var(--font-xl, 24px)",flexShrink:0}}>Join a game</h2>
       <div style={{display:"grid",gap:"var(--spacing-md, 10px)",maxWidth:"min(100%, 600px)"}}>
         <input placeholder="Room code (e.g. 7H6GQ2)" value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
                className="touch-target"

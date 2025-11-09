@@ -107,7 +107,7 @@ export default function PlayerGame(){
   const wrongIndex = !reveal && myAnswer !== null ? myAnswer : null;
 
   return (
-    <div style={{position:"relative", zIndex:1, maxWidth:"100%", overflow:"hidden"}}>
+    <div style={{position:"relative", zIndex:1, maxWidth:"100%", height:"100%", display:"flex", flexDirection:"column", overflow:"auto"}}>
       {theme && <ThemeOverlay effects={theme.effects} />}
       <ConfettiBurst trigger={confettiTrigger} />
       <WinnerCelebration show={showWinnerCelebration} winnerName={name} />

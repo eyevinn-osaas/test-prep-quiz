@@ -97,10 +97,10 @@ export default function GameMaster(){
   const maxQ = selected?.count || 1;
 
   return (
-    <div style={{position:"relative", zIndex:1, maxWidth:"100%", overflow:"hidden"}}>
+    <div style={{position:"relative", zIndex:1, maxWidth:"100%", height:"100%", display:"flex", flexDirection:"column", overflow:"hidden"}}>
       {theme && <ThemeOverlay effects={theme.effects} />}
 
-      <h2 style={{margin:"6px 0"}}>Game Master</h2>
+      <h2 style={{margin:"clamp(4px, 0.5vh, 6px) 0",flexShrink:0}}>Game Master</h2>
 
       {!room && (
         <div style={{
@@ -164,7 +164,7 @@ export default function GameMaster(){
       )}
 
       {room && (
-        <div className="gm-game-view">
+        <div className="gm-game-view" style={{flex:1,minHeight:0}}>
           <div className="gm-header" style={{display:"flex",gap:"var(--spacing-md, 12px)",flexWrap:"wrap",alignItems:"center"}}>
             <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Room: <strong style={{fontSize:"var(--font-lg, 18px)"}}>{room.code}</strong></span>
             <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Pack: {room.packTitle}</span>
