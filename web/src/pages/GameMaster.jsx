@@ -1,9 +1,57 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { socket } from "../socket";
 import { listPacks } from "../api";
 import Scoreboard from "../components/Scoreboard.jsx";
 import QuestionCard from "../components/QuestionCard.jsx";
 import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
+
+// Hook to keep screen awake during active questions
+function useWakeLock(isActive) {
+  const wakeLockRef = useRef(null);
+
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isActive) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        // Wake lock request failed - not critical, just ignore
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (err) {
+          // Release failed - not critical
+        }
+      }
+    };
+
+    if (isActive) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // Re-acquire wake lock when page becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isActive) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isActive]);
+}
 
 /* simple helper to apply CSS variables + body bg */
 function applyThemeToDocument(theme) {
@@ -43,6 +91,10 @@ export default function GameMaster(){
   const [q,setQ] = useState(null);
   const [reveal,setReveal] = useState(null);
   const [theme,setTheme] = useState(null);
+
+  // Keep screen awake during active questions
+  const isQuestionActive = q !== null && (room?.status === "question" || room?.status === "reveal");
+  useWakeLock(isQuestionActive);
 
   useEffect(()=>{ listPacks().then(setPacks); },[]);
 

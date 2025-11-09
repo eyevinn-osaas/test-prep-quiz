@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { socket } from "../socket";
 import QuestionCard from "../components/QuestionCard.jsx";
@@ -7,6 +7,54 @@ import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
 import { ConfettiBurst, useConfetti } from "../components/ConfettiBurst.jsx";
 import { soundPlayer, SoundMuteToggle } from "../components/SoundEffects.jsx";
 import { WinnerCelebration } from "../components/WinnerCelebration.jsx";
+
+// Hook to keep screen awake during active questions
+function useWakeLock(isActive) {
+  const wakeLockRef = useRef(null);
+
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator && isActive) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        // Wake lock request failed - not critical, just ignore
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (err) {
+          // Release failed - not critical
+        }
+      }
+    };
+
+    if (isActive) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    // Re-acquire wake lock when page becomes visible again
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isActive) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isActive]);
+}
 
 function applyThemeToDocument(theme) {
   try {
@@ -54,6 +102,10 @@ export default function PlayerGame(){
   const timeLeft = room?.status === "question"
     ? Math.max(0, Math.round((room.endsAt - now)/1000))
     : 0;
+
+  // Keep screen awake during active questions
+  const isQuestionActive = q !== null && (room?.status === "question" || room?.status === "reveal");
+  useWakeLock(isQuestionActive);
 
   useEffect(()=>{
     socket.emit("player:join", { code, name, avatar }, (res)=>{
