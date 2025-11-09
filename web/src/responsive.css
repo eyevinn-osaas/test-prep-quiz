@@ -141,16 +141,16 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
   }
 }
 
-/* Scoreboard responsive sizing - scales with container */
+/* Scoreboard responsive sizing - very compact on mobile */
 .scoreboard-item {
-  font-size: clamp(14px, 2vw, 16px);
-  padding: clamp(8px, 1vh, 12px) clamp(10px, 1.5vw, 16px);
+  font-size: clamp(12px, 2vw, 14px);
+  padding: clamp(4px, 0.6vh, 8px) clamp(6px, 1vw, 12px);
 }
 
 @media (min-width: 768px) {
   .scoreboard-item {
     font-size: clamp(16px, 2.2vw, 20px);
-    padding: clamp(10px, 1.2vh, 16px) clamp(12px, 1.8vw, 20px);
+    padding: clamp(8px, 1vh, 12px) clamp(12px, 1.5vw, 18px);
   }
 }
 
@@ -161,16 +161,16 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
   }
 }
 
-/* Question text responsive sizing - scales with container */
+/* Question text responsive sizing - very compact on mobile */
 .question-text {
-  font-size: clamp(16px, 2.5vw, 24px);
-  line-height: 1.4;
+  font-size: clamp(14px, 3vw, 20px);
+  line-height: 1.3;
 }
 
 @media (min-width: 768px) {
   .question-text {
     font-size: clamp(18px, 2.8vw, 28px);
-    line-height: 1.5;
+    line-height: 1.4;
   }
 }
 
@@ -181,17 +181,19 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
   }
 }
 
-/* Answer button responsive sizing - scales with container */
+/* Answer button responsive sizing - very compact on mobile to fit all 4 */
 .answer-button {
-  font-size: clamp(14px, 2vw, 18px);
-  padding: clamp(10px, 1.5vh, 16px);
-  min-height: var(--touch-target);
+  font-size: clamp(13px, 2.5vw, 16px);
+  padding: clamp(8px, 1.2vh, 12px);
+  min-height: clamp(40px, 5vh, 44px);
+  line-height: 1.2;
 }
 
 @media (min-width: 768px) {
   .answer-button {
     font-size: clamp(16px, 2.2vw, 20px);
-    padding: clamp(12px, 1.8vh, 20px);
+    padding: clamp(12px, 1.8vh, 18px);
+    min-height: var(--touch-target);
   }
 }
 
@@ -230,40 +232,45 @@ body, p, h1, h2, h3, h4, h5, h6, span, div {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  gap: clamp(6px, 1vh, 12px);
+  gap: clamp(4px, 0.5vh, 8px);
 }
 
 .player-header {
   flex-shrink: 0;
-  font-size: clamp(12px, 2vw, 14px);
+  font-size: clamp(11px, 1.8vw, 14px);
 }
 
 .player-question-section {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  padding-right: 4px; /* Space for scrollbar */
+  display: flex;
+  flex-direction: column;
+  overflow: visible; /* Never scroll - content must fit */
 }
 
 .player-scoreboard-section {
   flex-shrink: 0;
-  max-height: 25vh;
+  max-height: 18vh; /* Minimize on mobile */
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 4px; /* Space for scrollbar */
+  padding-right: 4px;
 }
 
-/* On tablets, give more space to scoreboard */
+/* On tablets, slightly more space to scoreboard */
 @media (min-width: 768px) {
   .player-scoreboard-section {
-    max-height: 35vh;
+    max-height: 28vh;
+  }
+
+  .player-game-container {
+    gap: clamp(6px, 1vh, 10px);
   }
 }
 
 /* On large screens, more balanced */
 @media (min-width: 1200px) {
   .player-scoreboard-section {
-    max-height: 45vh;
+    max-height: 40vh;
   }
 
   .player-game-container {

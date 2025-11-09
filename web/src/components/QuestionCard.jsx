@@ -30,10 +30,13 @@ export default function QuestionCard({
       background:"#0f1320",
       border:"1px solid #242b4a",
       borderRadius:14,
-      padding:"clamp(10px, 1.5vh, 20px)",
+      padding:"clamp(8px, 1.2vh, 18px)",
       minHeight:0,
       maxWidth:"100%",
-      overflow:"visible" /* Allow outlines to show */
+      overflow:"visible", /* Allow outlines to show */
+      flex:1,
+      display:"flex",
+      flexDirection:"column"
     }}>
       {canShowHeader && (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--spacing-sm, 8px)",flexWrap:"wrap",gap:"var(--spacing-sm, 8px)"}}>
@@ -48,9 +51,9 @@ export default function QuestionCard({
         </div>
       )}
 
-      <div className="question-text" style={{marginBottom:"var(--spacing-md, 12px)",wordWrap:"break-word",overflowWrap:"break-word"}}>{q.front}</div>
+      <div className="question-text" style={{marginBottom:"clamp(6px, 1vh, 12px)",wordWrap:"break-word",overflowWrap:"break-word"}}>{q.front}</div>
 
-      <div style={{display:"grid",gap:"var(--spacing-md, 10px)",width:"100%"}}>
+      <div style={{display:"grid",gap:"clamp(6px, 1vh, 12px)",width:"100%"}}>
         {q.choices.map((c, idx) => {
           const isReveal = revealIndex !== null;
           const isCorrect = isReveal && idx === revealIndex;
