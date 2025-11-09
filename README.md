@@ -39,7 +39,7 @@ Built for a 9-year-old's birthday party and battle-tested with kids, but versati
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/test-prep-quiz.git
+   git clone https://github.com/nolltre-lab/test-prep-quiz.git
    cd test-prep-quiz
    ```
 
