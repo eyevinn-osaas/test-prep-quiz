@@ -7,7 +7,7 @@ import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
 import { ConfettiBurst, useConfetti } from "../components/ConfettiBurst.jsx";
 import { soundPlayer, SoundMuteToggle } from "../components/SoundEffects.jsx";
 import { WinnerCelebration } from "../components/WinnerCelebration.jsx";
-import EndScreen from "../components/EndScreen.jsx";
+import PlayerEndScreen from "../components/PlayerEndScreen.jsx";
 
 // Hook to keep screen awake during active questions
 function useWakeLock(isActive) {
@@ -162,12 +162,11 @@ export default function PlayerGame(){
 
   return (
     <>
-      {/* End Screen - Render outside main container to avoid z-index stacking issues */}
+      {/* End Screen - Simple list-based results for players */}
       {gameEnded && room && (
-        <EndScreen
+        <PlayerEndScreen
           players={room.players || []}
           onClose={() => nav("/play")}
-          showCloseButton={true}
         />
       )}
 
