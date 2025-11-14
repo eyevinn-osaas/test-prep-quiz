@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 
 /**
  * Props:
@@ -21,7 +21,45 @@ export default function QuestionCard({
   qIndex,
   qTotal,
 }) {
+  // Shuffle choices client-side so each player has different order
+  const { shuffledChoices, indexMap } = useMemo(() => {
+    if (!q?.choices) return { shuffledChoices: [], indexMap: {} };
+
+    // Create array of { choice, originalIndex }
+    const indexed = q.choices.map((choice, idx) => ({ choice, originalIndex: idx }));
+
+    // Fisher-Yates shuffle
+    for (let i = indexed.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indexed[i], indexed[j]] = [indexed[j], indexed[i]];
+    }
+
+    // Build mapping: shuffledIndex -> originalIndex
+    const map = {};
+    indexed.forEach((item, shuffledIdx) => {
+      map[shuffledIdx] = item.originalIndex;
+    });
+
+    return {
+      shuffledChoices: indexed.map(item => item.choice),
+      indexMap: map
+    };
+  }, [q]); // Re-shuffle when question changes
+
+  // Map original index to shuffled index
+  const originalToShuffled = useMemo(() => {
+    const reverse = {};
+    Object.keys(indexMap).forEach(shuffledIdx => {
+      reverse[indexMap[shuffledIdx]] = Number(shuffledIdx);
+    });
+    return reverse;
+  }, [indexMap]);
+
   if (!q) return null;
+
+  // Map revealIndex and wrongIndex from original to shuffled
+  const shuffledRevealIndex = revealIndex !== null ? originalToShuffled[revealIndex] : null;
+  const shuffledWrongIndex = wrongIndex !== null ? originalToShuffled[wrongIndex] : null;
 
   const canShowHeader = (typeof timeLeft === "number") || (typeof qIndex === "number" && typeof qTotal === "number");
 
@@ -54,15 +92,21 @@ export default function QuestionCard({
       <div className="question-text" style={{marginBottom:"clamp(6px, 1vh, 12px)",wordWrap:"break-word",overflowWrap:"break-word"}}>{q.front}</div>
 
       <div style={{display:"grid",gap:"clamp(6px, 1vh, 12px)",width:"100%"}}>
-        {q.choices.map((c, idx) => {
-          const isReveal = revealIndex !== null;
-          const isCorrect = isReveal && idx === revealIndex;
-          const isWrong = !isReveal && wrongIndex !== null && idx === wrongIndex;
+        {shuffledChoices.map((c, shuffledIdx) => {
+          const isReveal = shuffledRevealIndex !== null;
+          const isCorrect = isReveal && shuffledIdx === shuffledRevealIndex;
+          const isWrong = !isReveal && shuffledWrongIndex !== null && shuffledIdx === shuffledWrongIndex;
 
           return (
             <button
-              key={idx}
-              onClick={() => onChoose && onChoose(idx)}
+              key={shuffledIdx}
+              onClick={() => {
+                if (onChoose) {
+                  // Convert shuffled index back to original index before calling onChoose
+                  const originalIdx = indexMap[shuffledIdx];
+                  onChoose(originalIdx);
+                }
+              }}
               disabled={disabled || isReveal}
               className="answer-button touch-target"
               style={{
