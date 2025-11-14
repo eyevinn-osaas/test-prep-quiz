@@ -35,7 +35,7 @@ export default function EndScreen({ players = [], onClose, showCloseButton = fal
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        animation: `podium-rise 0.6s ease-out ${rank * 0.2}s both`
+        animation: `podium-rise 0.8s ease-out ${rank * 0.15}s both`
       }}>
         {/* Player info */}
         <div style={{
@@ -77,7 +77,8 @@ export default function EndScreen({ players = [], onClose, showCloseButton = fal
         {/* Podium step */}
         <div style={{
           width: "100%",
-          height: `${height}px`,
+          height: height,
+          minHeight: "60px",
           background: medal.bg,
           borderRadius: "clamp(8px, 1.5vw, 12px) clamp(8px, 1.5vw, 12px) 0 0",
           border: "3px solid rgba(255, 255, 255, 0.3)",
@@ -194,11 +195,11 @@ export default function EndScreen({ players = [], onClose, showCloseButton = fal
             marginBottom: "clamp(16px, 3vh, 32px)"
           }}>
             {/* 2nd place */}
-            <PodiumPlayer player={second} rank={2} height={120} />
+            <PodiumPlayer player={second} rank={2} height="clamp(80px, 15vh, 140px)" />
             {/* 1st place */}
-            <PodiumPlayer player={first} rank={1} height={180} />
+            <PodiumPlayer player={first} rank={1} height="clamp(120px, 22vh, 200px)" />
             {/* 3rd place */}
-            <PodiumPlayer player={third} rank={3} height={90} />
+            <PodiumPlayer player={third} rank={3} height="clamp(60px, 12vh, 100px)" />
           </div>
         )}
 
