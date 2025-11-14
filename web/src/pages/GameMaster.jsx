@@ -4,6 +4,7 @@ import { listPacks } from "../api";
 import Scoreboard from "../components/Scoreboard.jsx";
 import QuestionCard from "../components/QuestionCard.jsx";
 import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
+import EndScreen from "../components/EndScreen.jsx";
 
 // Hook to keep screen awake during active questions
 function useWakeLock(isActive) {
@@ -92,6 +93,7 @@ export default function GameMaster(){
   const [q,setQ] = useState(null);
   const [reveal,setReveal] = useState(null);
   const [theme,setTheme] = useState(null);
+  const [gameEnded,setGameEnded] = useState(false);
 
   // Keep screen awake during active questions
   const isQuestionActive = q !== null && (room?.status === "question" || room?.status === "reveal");
@@ -114,7 +116,7 @@ export default function GameMaster(){
     };
     const onNew = (payload)=>{ setQ(payload.q); setReveal(null); };
     const onReveal = (payload)=> setReveal(payload);
-    const onEnd = ()=>{ setQ(null); setReveal(null); alert("Game finished!"); };
+    const onEnd = ()=>{ setQ(null); setReveal(null); setGameEnded(true); };
     const onAuto = ()=> {
       // GM can choose to go next automatically or manually;
       // here we auto-press next for convenience
@@ -145,6 +147,13 @@ export default function GameMaster(){
   const start = ()=> socket.emit("gm:start", { code: room?.code }, ()=>{});
   const next = ()=> socket.emit("gm:next", { code: room?.code }, ()=>{});
 
+  const handleNewGame = ()=>{
+    setGameEnded(false);
+    setRoom(null);
+    setQ(null);
+    setReveal(null);
+  };
+
   // bound by selected pack
   const selected = packs.find(p=>p.file===packFile);
   const maxQ = selected?.count || 1;
@@ -152,6 +161,15 @@ export default function GameMaster(){
   return (
     <div style={{position:"relative", zIndex:1, maxWidth:"100%", height:"100%", display:"flex", flexDirection:"column", overflow:"hidden"}}>
       {theme && <ThemeOverlay effects={theme.effects} />}
+
+      {/* End Screen */}
+      {gameEnded && room && (
+        <EndScreen
+          players={room.players || []}
+          onClose={handleNewGame}
+          showCloseButton={true}
+        />
+      )}
 
       <h2 style={{margin:"clamp(4px, 0.5vh, 6px) 0",flexShrink:0}}>Game Master</h2>
 

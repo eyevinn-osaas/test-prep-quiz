@@ -7,6 +7,7 @@ import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
 import { ConfettiBurst, useConfetti } from "../components/ConfettiBurst.jsx";
 import { soundPlayer, SoundMuteToggle } from "../components/SoundEffects.jsx";
 import { WinnerCelebration } from "../components/WinnerCelebration.jsx";
+import EndScreen from "../components/EndScreen.jsx";
 
 // Hook to keep screen awake during active questions
 function useWakeLock(isActive) {
@@ -92,6 +93,7 @@ export default function PlayerGame(){
   const [theme,setTheme] = useState(null);
   const [showWinnerCelebration, setShowWinnerCelebration] = useState(false);
   const [myAnswer, setMyAnswer] = useState(null); // Track player's answer choice
+  const [gameEnded,setGameEnded] = useState(false);
   const { confettiTrigger, fireConfetti } = useConfetti();
 
   const [now, setNow] = useState(Date.now());
@@ -129,7 +131,7 @@ export default function PlayerGame(){
         setShowWinnerCelebration(true);
       }
     };
-    const onEnd = ()=>{ alert("Game finished!"); nav("/play"); };
+    const onEnd = ()=>{ setGameEnded(true); };
 
     socket.on("room:update", onUpdate);
     socket.on("question:new", onNew);
@@ -163,6 +165,15 @@ export default function PlayerGame(){
       {theme && <ThemeOverlay effects={theme.effects} />}
       <ConfettiBurst trigger={confettiTrigger} />
       <WinnerCelebration show={showWinnerCelebration} winnerName={name} />
+
+      {/* End Screen */}
+      {gameEnded && room && (
+        <EndScreen
+          players={room.players || []}
+          onClose={() => nav("/play")}
+          showCloseButton={true}
+        />
+      )}
 
       <div className="player-header" style={{marginBottom:10,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",opacity:.9}}>
