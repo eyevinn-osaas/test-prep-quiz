@@ -251,41 +251,12 @@ export default function GameMaster(){
 
       {room && (
         <div className="gm-game-view" style={{flex:1,minHeight:0}}>
-          <div className="gm-header" style={{display:"flex",gap:"var(--spacing-md, 12px)",flexWrap:"wrap",alignItems:"flex-start"}}>
-            <div style={{display:"flex",gap:"var(--spacing-md, 12px)",flexWrap:"wrap",alignItems:"center",flex:1}}>
-              <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Room: <strong style={{fontSize:"var(--font-lg, 18px)"}}>{room.code}</strong></span>
-              <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Pack: {room.packTitle}</span>
-              <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Players: {room.players?.length || 0}</span>
-              <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Total Q: {room.total}</span>
-              {room.theme?.name && <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Theme: {room.theme.name}</span>}
-            </div>
-
-            {/* QR Code for players to join */}
-            <div style={{
-              background:"var(--panel,#12172b)",
-              border:"2px solid var(--accent, #6ee7b7)",
-              borderRadius:12,
-              padding:"var(--spacing-md, 12px)",
-              display:"flex",
-              flexDirection:"column",
-              alignItems:"center",
-              gap:"var(--spacing-sm, 8px)"
-            }}>
-              <div style={{fontSize:"var(--font-sm, 14px)",fontWeight:600,color:"var(--accent, #6ee7b7)"}}>
-                Scan to Join
-              </div>
-              <div style={{background:"white",padding:"8px",borderRadius:8}}>
-                <QRCodeSVG
-                  value={`${window.location.origin}/play?room=${room.code}`}
-                  size={120}
-                  level="M"
-                  includeMargin={false}
-                />
-              </div>
-              <div style={{fontSize:"var(--font-xs, 12px)",opacity:0.7,textAlign:"center"}}>
-                {window.location.origin.replace(/^https?:\/\//, '')}/play
-              </div>
-            </div>
+          <div className="gm-header" style={{display:"flex",gap:"var(--spacing-md, 12px)",flexWrap:"wrap",alignItems:"center"}}>
+            <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Room: <strong style={{fontSize:"var(--font-lg, 18px)"}}>{room.code}</strong></span>
+            <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Pack: {room.packTitle}</span>
+            <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Players: {room.players?.length || 0}</span>
+            <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Total Q: {room.total}</span>
+            {room.theme?.name && <span style={{background:"var(--panel,#12172b)",border:"1px solid #242b4a",padding:"var(--spacing-sm, 8px) var(--spacing-md, 12px)",borderRadius:10,fontSize:"var(--font-sm, 14px)"}}>Theme: {room.theme.name}</span>}
           </div>
 
           <div className="gm-controls" style={{display:"flex",gap:"var(--spacing-md, 10px)",flexWrap:"wrap"}}>
@@ -316,8 +287,35 @@ export default function GameMaster(){
             )}
           </div>
 
-          <div className="gm-scoreboard-area">
-            <Scoreboard players={room.players}/>
+          <div className="gm-scoreboard-area" style={{display:"flex",gap:"var(--spacing-md, 12px)",alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <Scoreboard players={room.players}/>
+            </div>
+
+            {/* QR Code for players to join */}
+            <div style={{
+              background:"var(--panel,#12172b)",
+              border:"2px solid var(--accent, #6ee7b7)",
+              borderRadius:8,
+              padding:"var(--spacing-sm, 8px)",
+              display:"flex",
+              flexDirection:"column",
+              alignItems:"center",
+              gap:"var(--spacing-xs, 4px)",
+              flexShrink:0
+            }}>
+              <div style={{fontSize:"var(--font-xs, 11px)",fontWeight:600,color:"var(--accent, #6ee7b7)"}}>
+                Scan to Join
+              </div>
+              <div style={{background:"white",padding:"4px",borderRadius:4}}>
+                <QRCodeSVG
+                  value={`${window.location.origin}/play?room=${room.code}`}
+                  size={80}
+                  level="M"
+                  includeMargin={false}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}
