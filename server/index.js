@@ -131,6 +131,8 @@ function makeRoom({ code, pack, items, theme, isPublic = true }) {
     theme: theme || null, // full theme object
     totalOverride: null,  // optional if you carry total from GM; not used here
     isPublic: isPublic,   // whether room appears in public lobby list
+    winner: null,         // socketId of first correct answer in current round
+    winnerName: null,     // name of winner for display
   };
 }
 
@@ -167,11 +169,14 @@ function startTimer(room){
   room.endsAt = Date.now() + duration;
   room.isLightning = lightning;  // Store for client to know
   room.timer = setTimeout(()=>{
-    // time's up -> reveal with no winner
+    // time's up -> reveal
     if(room.status !== "question") return;
     room.status = "reveal";
     room.lock = true;
-    io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: null });
+    io.to(room.code).emit("question:reveal", {
+      correctIndex: currentCorrectIndex(room),
+      winner: room.winnerName || null
+    });
     broadcastState(room);
     // Optional: auto-advance after 5s
     setTimeout(()=> {
@@ -294,6 +299,7 @@ io.on("connection", (socket)=>{
   socket.on("gm:start", ({ code }, cb)=>{
     const room = rooms.get(code); if(!room || room.gm!==socket.id) return cb?.({ ok:false });
     room.ix = 0; room.status = "question"; room.lock=false;
+    room.winner = null; room.winnerName = null; // Reset winner for new question
     room.players.forEach(p => { p.answered=false; p.lastQ=room.ix; });
     startTimer(room);
     io.to(code).emit("question:new", {
@@ -316,6 +322,7 @@ io.on("connection", (socket)=>{
       return cb?.({ ok:true, ended:true });
     }
     room.status = "question"; room.lock=false;
+    room.winner = null; room.winnerName = null; // Reset winner for new question
     room.players.forEach(p => { p.answered=false; p.lastQ=room.ix; });
     startTimer(room);
     io.to(code).emit("question:new", { ix: room.ix, total: room.items.length, q: currentQuestion(room) });
@@ -341,7 +348,7 @@ io.on("connection", (socket)=>{
     cb?.({ ok:true, room:{ code:room.code, packTitle:room.packTitle }, theme: room.theme?.name });
   });
 
-  // Player: answer (with speed bonus, streak tracking, and lightning round multipliers)
+  // Player: answer (all correct answers score, but only winner gets streak)
   socket.on("player:answer", ({ code, choiceIndex }, cb)=>{
     const room = rooms.get(code); if(!room || room.status!=="question" || room.lock) return cb?.({ ok:false });
     const player = room.players.get(socket.id); if(!player) return cb?.({ ok:false });
@@ -351,68 +358,66 @@ io.on("connection", (socket)=>{
     player.answered = true; player.lastQ = room.ix;
     const correct = Number(choiceIndex) === currentCorrectIndex(room);
 
+    // Calculate time-based scoring
+    const timeRemaining = Math.max(0, room.endsAt - Date.now());
+    const totalDuration = room.isLightning ? room.durationSec * 500 : room.durationSec * 1000;
+    const speedBonus = calculateSpeedBonus(timeRemaining, totalDuration);
+    const lightningMultiplier = room.isLightning ? 2 : 1;
+
     if(correct){
-      room.lock = true; room.status = "reveal";
+      const isWinner = !room.winner; // First correct answer is the winner
 
-      // Calculate bonuses and multipliers
-      const timeRemaining = Math.max(0, room.endsAt - Date.now());
-      const totalDuration = room.isLightning ? room.durationSec * 500 : room.durationSec * 1000;
-      const speedBonus = calculateSpeedBonus(timeRemaining, totalDuration);
+      if(isWinner){
+        // First correct answer - full points with streak bonus
+        room.winner = socket.id;
+        room.winnerName = player.name;
 
-      player.streak = (player.streak || 0) + 1;  // Increment streak
+        player.streak = (player.streak || 0) + 1;  // Increment streak
 
-      // Reset all other players' streaks when someone wins
-      room.players.forEach((p, sid) => {
-        if (sid !== socket.id) {
-          p.streak = 0;
-        }
-      });
+        // Reset all other players' streaks when someone wins
+        room.players.forEach((p, sid) => {
+          if (sid !== socket.id) {
+            p.streak = 0;
+          }
+        });
 
-      const streakMultiplier = getStreakMultiplier(player.streak);
-      const lightningMultiplier = room.isLightning ? 2 : 1;
+        const streakMultiplier = getStreakMultiplier(player.streak);
 
-      // Base score: 10 points
-      // Apply streak multiplier, then add speed bonus, then apply lightning multiplier
-      const baseScore = 10;
-      const scoreWithStreak = baseScore * streakMultiplier;
-      const scoreWithBonus = scoreWithStreak + speedBonus;
-      const finalScore = scoreWithBonus * lightningMultiplier;
+        // Winner scoring: (base × streak + speedBonus) × lightning
+        const baseScore = 10;
+        const scoreWithStreak = baseScore * streakMultiplier;
+        const scoreWithBonus = scoreWithStreak + speedBonus;
+        const finalScore = scoreWithBonus * lightningMultiplier;
 
-      player.score += finalScore;
+        player.score += finalScore;
 
-      clearTimeout(room.timer);
-      io.to(room.code).emit("question:reveal", {
-        correctIndex: currentCorrectIndex(room),
-        winner: player.name,
-        speedBonus,
-        streakMultiplier,
-        lightningMultiplier,
-        pointsEarned: finalScore
-      });
-      broadcastState(room);
-      // auto-advance after 5s if GM doesn't press Next
-      setTimeout(()=> {
-        if(room.status === "reveal") io.to(room.code).emit("gm:auto-next", {});
-      }, 5000);
-      return cb?.({ ok:true, correct:true, speedBonus, streakMultiplier, lightningMultiplier, pointsEarned: finalScore });
+        // Notify player of their win with full details
+        broadcastState(room);
+        return cb?.({ ok:true, correct:true, isWinner:true, speedBonus, streakMultiplier, lightningMultiplier, pointsEarned: finalScore });
+      } else {
+        // Not first - reduced points, no streak
+        player.streak = 0; // Reset streak even though correct (didn't win)
+
+        // Reduced scoring for non-winners: (reducedBase + speedBonus) × lightning
+        const reducedBase = 5; // Half the base points
+        const scoreWithBonus = reducedBase + speedBonus;
+        const finalScore = scoreWithBonus * lightningMultiplier;
+
+        player.score += finalScore;
+
+        broadcastState(room);
+        return cb?.({ ok:true, correct:true, isWinner:false, speedBonus, streakMultiplier:1, lightningMultiplier, pointsEarned: finalScore });
+      }
     } else {
+      // Wrong answer
       player.score -= 1;
       player.streak = 0;  // Reset streak on wrong answer
       broadcastState(room);
-      // if all players answered (all have answered==true for this ix), auto-reveal/next
-      const allAnswered = [...room.players.values()].length > 0 &&
-                          [...room.players.values()].every(p => p.answered && p.lastQ === room.ix);
-      if (allAnswered) {
-        room.lock = true; room.status = "reveal";
-        clearTimeout(room.timer);
-        io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: null });
-        broadcastState(room);
-        setTimeout(()=> {
-          if(room.status === "reveal") io.to(room.code).emit("gm:auto-next", {});
-        }, 5000);
-      }
       return cb?.({ ok:true, correct:false });
     }
+
+    // Note: Timer handles reveal when time expires
+    // No need to check "all answered" here since we want timer to continue
   });
 
   // Disconnect cleanup
