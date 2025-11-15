@@ -360,6 +360,14 @@ io.on("connection", (socket)=>{
       const speedBonus = calculateSpeedBonus(timeRemaining, totalDuration);
 
       player.streak = (player.streak || 0) + 1;  // Increment streak
+
+      // Reset all other players' streaks when someone wins
+      room.players.forEach((p, sid) => {
+        if (sid !== socket.id) {
+          p.streak = 0;
+        }
+      });
+
       const streakMultiplier = getStreakMultiplier(player.streak);
       const lightningMultiplier = room.isLightning ? 2 : 1;
 
