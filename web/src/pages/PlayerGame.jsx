@@ -6,8 +6,8 @@ import Scoreboard from "../components/Scoreboard.jsx";
 import { ThemeOverlay } from "../components/ThemeOverlay.jsx";
 import { ConfettiBurst, useConfetti } from "../components/ConfettiBurst.jsx";
 import { soundPlayer, SoundMuteToggle } from "../components/SoundEffects.jsx";
-import { WinnerCelebration } from "../components/WinnerCelebration.jsx";
 import PlayerEndScreen from "../components/PlayerEndScreen.jsx";
+import BonusNotification from "../components/BonusNotification.jsx";
 
 // Hook to keep screen awake during active questions
 function useWakeLock(isActive) {
@@ -91,10 +91,11 @@ export default function PlayerGame(){
   const [reveal,setReveal] = useState(null);
   const [locked,setLocked] = useState(false);
   const [theme,setTheme] = useState(null);
-  const [showWinnerCelebration, setShowWinnerCelebration] = useState(false);
   const [myAnswer, setMyAnswer] = useState(null); // Track player's answer choice
   const [gameEnded,setGameEnded] = useState(false);
   const { confettiTrigger, fireConfetti } = useConfetti();
+  const [bonusInfo, setBonusInfo] = useState(null); // Track bonus points information
+  const [showBonus, setShowBonus] = useState(false);
 
   const [now, setNow] = useState(Date.now());
   useEffect(()=>{
@@ -121,14 +122,13 @@ export default function PlayerGame(){
         applyThemeToDocument(r.theme);
       }
     };
-    const onNew = (payload)=>{ setQ(payload.q); setLocked(false); setReveal(null); setShowWinnerCelebration(false); setMyAnswer(null); };
+    const onNew = (payload)=>{ setQ(payload.q); setLocked(false); setReveal(null); setMyAnswer(null); setShowBonus(false); setBonusInfo(null); };
     const onReveal = (payload)=>{
       setReveal(payload);
       setLocked(true);
       if (payload.winner === name) {
         fireConfetti();
         soundPlayer.playCelebration();
-        setShowWinnerCelebration(true);
       }
     };
     const onEnd = ()=>{ setGameEnded(true); };
@@ -151,7 +151,18 @@ export default function PlayerGame(){
     setLocked(true);
     setMyAnswer(idx); // Track what the player chose
     socket.emit("player:answer", { code, choiceIndex: idx }, (res)=>{
-      if(!res?.ok){ /* ignore */ }
+      if(res?.ok && res?.correct) {
+        // Show bonus notification if player got it right
+        setBonusInfo({
+          speedBonus: res.speedBonus || 0,
+          streakMultiplier: res.streakMultiplier || 1,
+          lightningMultiplier: res.lightningMultiplier || 1,
+          pointsEarned: res.pointsEarned || 10
+        });
+        setShowBonus(true);
+        // Hide bonus notification after 3 seconds
+        setTimeout(() => setShowBonus(false), 3000);
+      }
     });
   };
 
@@ -173,7 +184,13 @@ export default function PlayerGame(){
       <div className="player-game-container" style={{position:"relative", zIndex:1, maxWidth:"100%"}}>
         {theme && <ThemeOverlay effects={theme.effects} />}
         <ConfettiBurst trigger={confettiTrigger} />
-        <WinnerCelebration show={showWinnerCelebration} winnerName={name} />
+        <BonusNotification
+          show={showBonus}
+          speedBonus={bonusInfo?.speedBonus}
+          streakMultiplier={bonusInfo?.streakMultiplier}
+          lightningMultiplier={bonusInfo?.lightningMultiplier}
+          pointsEarned={bonusInfo?.pointsEarned}
+        />
 
         <div className="player-header" style={{marginBottom:10,display:"flex",gap:10,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
         <div style={{display:"flex",gap:10,flexWrap:"wrap",opacity:.9}}>
@@ -197,6 +214,7 @@ export default function PlayerGame(){
               timeLeft={room?.status === "question" ? timeLeft : undefined}
               qIndex={room?.ix}
               qTotal={room?.total}
+              isLightning={room?.isLightning || false}
             />
             <div style={{marginTop:8,opacity:.8}}>
               {room?.status==="question"

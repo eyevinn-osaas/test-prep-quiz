@@ -143,7 +143,13 @@ function broadcastState(room){
     total: room.items.length,
     durationSec: room.durationSec,
     endsAt: room.endsAt,
-    players: [...room.players.values()].map(p => ({ name:p.name, score:p.score, avatar:p.avatar })),
+    isLightning: room.isLightning || false,  // Lightning round indicator
+    players: [...room.players.values()].map(p => ({
+      name:p.name,
+      score:p.score,
+      avatar:p.avatar,
+      streak:p.streak || 0  // Include streak for UI display
+    })),
     theme: room.theme ? {
       name: room.theme.name || "classic",
       vars: room.theme.vars || {},
@@ -155,7 +161,11 @@ function broadcastState(room){
 
 function startTimer(room){
   clearTimeout(room.timer);
-  room.endsAt = Date.now() + room.durationSec*1000;
+  // Lightning round: half the normal time!
+  const lightning = isLightningRound(room);
+  const duration = lightning ? room.durationSec * 500 : room.durationSec * 1000;
+  room.endsAt = Date.now() + duration;
+  room.isLightning = lightning;  // Store for client to know
   room.timer = setTimeout(()=>{
     // time's up -> reveal with no winner
     if(room.status !== "question") return;
@@ -170,7 +180,7 @@ function startTimer(room){
         // GM will likely press Next; if you want fully automatic, you could call nextQ here.
       }
     }, 5000);
-  }, room.durationSec*1000 + 50);
+  }, duration + 50);
 }
 
 function currentQuestion(room){ return room.items[room.ix]; }
@@ -185,6 +195,31 @@ function buildChoices(q){
   // synthesize 4 choices
   const choices = [q.back, "Inte denna", "Ett annat alternativ", "Ytterligare distraktor"];
   return { ...q, choices, answerIndex: 0 };
+}
+
+// Check if current question is in lightning round (last 20% or last 3, whichever smaller)
+function isLightningRound(room) {
+  const total = room.items.length;
+  const lightningCount = Math.max(1, Math.min(3, Math.ceil(total * 0.2)));
+  return room.ix >= (total - lightningCount);
+}
+
+// Calculate speed bonus: faster answers get more bonus points
+// 100% time left = +5 bonus, 50% = +2 bonus, <25% = 0 bonus
+function calculateSpeedBonus(timeRemainingMs, totalDurationMs) {
+  const percentRemaining = timeRemainingMs / totalDurationMs;
+  if (percentRemaining >= 0.75) return 5;  // Very fast (75-100% time left)
+  if (percentRemaining >= 0.50) return 3;  // Fast (50-75% time left)
+  if (percentRemaining >= 0.25) return 1;  // Medium (25-50% time left)
+  return 0;  // Slow (<25% time left)
+}
+
+// Calculate streak multiplier: consecutive correct answers multiply points
+// 3+ streak = 2x, 5+ streak = 3x
+function getStreakMultiplier(streak) {
+  if (streak >= 5) return 3;
+  if (streak >= 3) return 2;
+  return 1;
 }
 
 function getPublicRooms() {
@@ -298,14 +333,15 @@ io.on("connection", (socket)=>{
       avatar: String(avatar||"😀").slice(0,2),
       score:0,
       answered:false,
-      lastQ:-1
+      lastQ:-1,
+      streak:0  // Track consecutive correct answers for streak bonus
     });
     broadcastState(room);
     broadcastPublicRooms(); // Player count changed - update public list
     cb?.({ ok:true, room:{ code:room.code, packTitle:room.packTitle }, theme: room.theme?.name });
   });
 
-  // Player: answer (one attempt; wrong = -1; correct = +10 and reveal)
+  // Player: answer (with speed bonus, streak tracking, and lightning round multipliers)
   socket.on("player:answer", ({ code, choiceIndex }, cb)=>{
     const room = rooms.get(code); if(!room || room.status!=="question" || room.lock) return cb?.({ ok:false });
     const player = room.players.get(socket.id); if(!player) return cb?.({ ok:false });
@@ -317,17 +353,43 @@ io.on("connection", (socket)=>{
 
     if(correct){
       room.lock = true; room.status = "reveal";
-      player.score += 10;
+
+      // Calculate bonuses and multipliers
+      const timeRemaining = Math.max(0, room.endsAt - Date.now());
+      const totalDuration = room.isLightning ? room.durationSec * 500 : room.durationSec * 1000;
+      const speedBonus = calculateSpeedBonus(timeRemaining, totalDuration);
+
+      player.streak = (player.streak || 0) + 1;  // Increment streak
+      const streakMultiplier = getStreakMultiplier(player.streak);
+      const lightningMultiplier = room.isLightning ? 2 : 1;
+
+      // Base score: 10 points
+      // Apply streak multiplier, then add speed bonus, then apply lightning multiplier
+      const baseScore = 10;
+      const scoreWithStreak = baseScore * streakMultiplier;
+      const scoreWithBonus = scoreWithStreak + speedBonus;
+      const finalScore = scoreWithBonus * lightningMultiplier;
+
+      player.score += finalScore;
+
       clearTimeout(room.timer);
-      io.to(room.code).emit("question:reveal", { correctIndex: currentCorrectIndex(room), winner: player.name });
+      io.to(room.code).emit("question:reveal", {
+        correctIndex: currentCorrectIndex(room),
+        winner: player.name,
+        speedBonus,
+        streakMultiplier,
+        lightningMultiplier,
+        pointsEarned: finalScore
+      });
       broadcastState(room);
       // auto-advance after 5s if GM doesn't press Next
       setTimeout(()=> {
         if(room.status === "reveal") io.to(room.code).emit("gm:auto-next", {});
       }, 5000);
-      return cb?.({ ok:true, correct:true });
+      return cb?.({ ok:true, correct:true, speedBonus, streakMultiplier, lightningMultiplier, pointsEarned: finalScore });
     } else {
       player.score -= 1;
+      player.streak = 0;  // Reset streak on wrong answer
       broadcastState(room);
       // if all players answered (all have answered==true for this ix), auto-reveal/next
       const allAnswered = [...room.players.values()].length > 0 &&

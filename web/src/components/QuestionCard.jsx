@@ -10,6 +10,7 @@ import React, { useMemo } from "react";
  *  - timeLeft?: number           // OPTIONAL: seconds remaining (live)
  *  - qIndex?: number             // OPTIONAL: 0-based current question index
  *  - qTotal?: number             // OPTIONAL: total questions in game
+ *  - isLightning?: boolean       // OPTIONAL: whether this is a lightning round question
  */
 export default function QuestionCard({
   q,
@@ -20,6 +21,7 @@ export default function QuestionCard({
   timeLeft,
   qIndex,
   qTotal,
+  isLightning = false,
 }) {
   // Shuffle choices client-side so each player has different order
   const { shuffledChoices, indexMap } = useMemo(() => {
@@ -64,27 +66,54 @@ export default function QuestionCard({
   const canShowHeader = (typeof timeLeft === "number") || (typeof qIndex === "number" && typeof qTotal === "number");
 
   return (
-    <div style={{
-      background:"#0f1320",
-      border:"1px solid #242b4a",
-      borderRadius:14,
-      padding:"clamp(8px, 1.2vh, 18px)",
-      minHeight:0,
-      maxWidth:"100%",
-      overflow:"visible", /* Allow outlines to show */
-      flex:1,
-      display:"flex",
-      flexDirection:"column"
-    }}>
+    <>
+      <style>{`
+        @keyframes lightning-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.85; transform: scale(1.02); }
+        }
+      `}</style>
+      <div style={{
+        background:"#0f1320",
+        border:"1px solid #242b4a",
+        borderRadius:14,
+        padding:"clamp(8px, 1.2vh, 18px)",
+        minHeight:0,
+        maxWidth:"100%",
+        overflow:"visible", /* Allow outlines to show */
+        flex:1,
+        display:"flex",
+        flexDirection:"column"
+      }}>
       {canShowHeader && (
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"var(--spacing-sm, 8px)",flexWrap:"wrap",gap:"var(--spacing-sm, 8px)"}}>
           <div style={{display:"flex",gap:"var(--spacing-sm, 8px)",flexWrap:"wrap"}}>
             {typeof qIndex === "number" && typeof qTotal === "number" && (
               <span style={pillStyle}>Q <strong>{Math.max(0, qIndex + 1)}</strong> / {qTotal}</span>
             )}
+            {isLightning && (
+              <span style={{
+                ...pillStyle,
+                background: "linear-gradient(135deg, #FFD700 0%, #FF6B00 100%)",
+                border: "2px solid #FFD700",
+                color: "#0f1320",
+                fontWeight: 700,
+                animation: "lightning-pulse 1s ease-in-out infinite"
+              }}>
+                ⚡ LIGHTNING ROUND - 2X POINTS!
+              </span>
+            )}
           </div>
           {typeof timeLeft === "number" && (
-            <span style={pillStyle}>⏳ {Math.max(0, timeLeft)}s</span>
+            <span style={{
+              ...pillStyle,
+              ...(isLightning && {
+                background: "linear-gradient(135deg, #FF6B00 0%, #FFD700 100%)",
+                border: "2px solid #FFD700",
+                color: "#0f1320",
+                fontWeight: 700
+              })
+            }}>⏳ {Math.max(0, timeLeft)}s</span>
           )}
         </div>
       )}
@@ -132,7 +161,8 @@ export default function QuestionCard({
           );
         })}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 

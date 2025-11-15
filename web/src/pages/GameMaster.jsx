@@ -267,7 +267,14 @@ export default function GameMaster(){
           <div className="gm-question-area">
             {q && (
               <div>
-                <QuestionCard q={q} disabled revealIndex={reveal?.correctIndex}/>
+                <QuestionCard
+                  q={q}
+                  disabled
+                  revealIndex={reveal?.correctIndex}
+                  qIndex={room?.ix}
+                  qTotal={room?.total}
+                  isLightning={room?.isLightning || false}
+                />
                 <div style={{marginTop:8,opacity:.8}}>
                   {room.status==="question"
                     ? <>Time left: <strong>{Math.max(0, Math.round((room.endsAt - Date.now())/1000))}s</strong></>
